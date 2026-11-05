@@ -8,8 +8,10 @@ export async function GET() {
     const user = await requireCompanyUser();
 
     const now = new Date();
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    // "Mês" = últimos 30 dias (igual ao gráfico), para manter consistência visual
+    const firstOfMonth = new Date(now);
+    firstOfMonth.setDate(now.getDate() - 30);
+    const lastOfMonth = now;
 
     // Busca todos os dados necessários em paralelo
     const [reservoirs, refuelingsMonth, refuelingsAll, equipments, expensesMonth, maintenances, alerts] =
