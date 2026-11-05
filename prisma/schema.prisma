@@ -1,0 +1,459 @@
+// Prisma schema — FuelGest (multi-tenant SaaS)
+// Compatível com SQLite (dev) e PostgreSQL (produção via DATABASE_URL)
+// Em produção, use: prisma migrate deploy (PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================================
+// EMPRESAS / TENANT
+// =========================================================
+model Company {
+  id              String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  responsibleName  String
+  email            String   @unique
+  whatsapp         String?
+  phone            String?
+  document         String?  // CNPJ/CPF
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?
+  status           String   @default("trial") // trial | active | overdue | blocked
+  trialEndsAt      DateTime?
+  planId           String?
+  plan             Plan?    @relation(fields: [planId], references: [id])
+  subscriptionId   String?
+  subscription     Subscription? @relation("CompanySubscription")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users           User[]
+  equipments      Equipment[]
+  reservoirs      Reservoir[]
+  fuelEntries     FuelEntry[]
+  refuelings      Refueling[]
+  maintenances    Maintenance[]
+  expenses        Expense[]
+  alerts          Alert[]
+  notifications   Notification[]
+  logs            AuditLog[]
+
+  @@index([status])
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  monthlyPrice    Float
+  yearlyPrice     Float
+  maxEquipments   Int      @default(10)
+  maxUsers        Int      @default(5)
+  features        String   // JSON string
+  highlighted     Boolean  @default(false)
+  order           Int      @default(0)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  companies       Company[]
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id            String    @id @default(cuid())
+  companyId      String    @unique
+  company        Company   @relation("CompanySubscription", fields: [companyId], references: [id])
+  planId         String
+  plan           Plan      @relation(fields: [planId], references: [id])
+  billingCycle   String    @default("monthly") // monthly | yearly
+  status        String    @default("active") // active | canceled | past_due
+  startsAt       DateTime  @default(now())
+  currentEnd     DateTime?
+  amount         Float
+  paymentMethod  String?   // pix | card | boleto
+  paymentApiKey  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  payments       Payment[]
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  subscriptionId  String
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id])
+  amount          Float
+  status          String    @default("pending") // pending | paid | failed | refunded
+  method          String?   // pix | card | boleto
+  paidAt          DateTime?
+  dueDate        DateTime?
+  invoiceUrl      String?
+  createdAt       DateTime  @default(now())
+
+  @@index([subscriptionId])
+}
+
+model Coupon {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  type        String    @default("percent") // percent | fixed
+  value       Float
+  maxUses     Int       @default(100)
+  usesCount   Int       @default(0)
+  expiresAt   DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+// =========================================================
+// USUÁRIOS (Super Admin, Gestor, Operador)
+// =========================================================
+model User {
+  id            String    @id @default(cuid())
+  companyId     String?
+  company       Company?  @relation(fields: [companyId], references: [id])
+  name          String
+  email         String    @unique
+  passwordHash  String
+  phone         String?
+  role          String    @default("operator") // super_admin | manager | operator
+  active        Boolean   @default(true)
+  lastLoginAt   DateTime?
+  forcePasswordChange Boolean @default(false)
+  twoFactorEnabled  Boolean @default(false)
+  twoFactorSecret  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  refuelings      Refueling[]
+  maintenances    Maintenance[]
+  expenses        Expense[]
+  impersonations  AuditLog[] @relation("ImpersonatedBy")
+  logs            AuditLog[]
+
+  @@index([companyId])
+  @@index([role])
+}
+
+// =========================================================
+// EQUIPAMENTOS
+// =========================================================
+model Equipment {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  name            String    // modelo/nome
+  type            String    // truck | light_vehicle | heavy_machine | other
+  plate           String?
+  assetNumber     String?   // número do patrimônio
+  value           Float?
+  photo           String?   // caminho no servidor
+  notes           String?
+  origin          String    @default("company") // company | third_party
+  ownerName       String?   // quando terceiro
+  controlType     String    @default("hours") // hours | km
+  initialReading  Float     @default(0)
+  currentReading  Float     @default(0)
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  refuelings      Refueling[]
+  maintenanceItems MaintenanceItem[]
+  maintenances     Maintenance[]
+  expenses         Expense[]
+  alerts           Alert[]
+
+  @@index([companyId])
+  @@index([type])
+  @@index([origin])
+}
+
+model MaintenanceItem {
+  id              String    @id @default(cuid())
+  equipmentId     String
+  equipment       Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  name            String    // troca de óleo, filtro de óleo etc.
+  interval        Float     // intervalo em horas ou km
+  lastReading     Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([equipmentId])
+}
+
+// =========================================================
+// RESERVATÓRIOS / ESTOQUE
+// =========================================================
+model Reservoir {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  name            String    // Reservatório 1
+  capacity        Float     // litros
+  fuelType        String    // diesel_s10 | diesel_s500 | gasoline | ethanol | other
+  currentLevel    Float     @default(0)
+  minLevel        Float     @default(0)
+  minLevelType    String    @default("liters") // liters | percent
+  notes           String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  fuelEntries     FuelEntry[]
+  refuelings      Refueling[]
+  alerts          Alert[]
+
+  @@index([companyId])
+}
+
+model FuelEntry {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  reservoirId     String
+  reservoir       Reservoir @relation(fields: [reservoirId], references: [id])
+  liters          Float
+  pricePerLiter   Float
+  totalAmount     Float
+  supplier        String?
+  invoiceNumber   String?
+  invoicePhoto    String?
+  entryDate       DateTime  @default(now())
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([reservoirId])
+}
+
+// =========================================================
+// ABASTECIMENTOS
+// =========================================================
+model Refueling {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  equipmentId     String
+  equipment       Equipment @relation(fields: [equipmentId], references: [id])
+  reservoirId     String?
+  reservoir       Reservoir? @relation(fields: [reservoirId], references: [id])
+  operatorId      String
+  operator        User      @relation(fields: [operatorId], references: [id])
+  operatorName    String    // puxado do login, editável
+  source          String    @default("reservoir") // reservoir | external
+  // Se externo:
+  externalStation String?
+  externalPricePerLiter Float?
+  externalTotalAmount  Float?
+  externalInvoicePhoto String?
+  //
+  liters          Float
+  fuelType        String
+  pricePerLiter   Float
+  totalAmount     Float
+  reading         Float     // horímetro ou hodômetro
+  previousReading Float?
+  consumption     Float?    // L/h ou km/L
+  service         String?
+  notes           String?
+  photo           String?
+  refuelDate      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([equipmentId])
+  @@index([operatorId])
+  @@index([reservoirId])
+  @@index([refuelDate])
+}
+
+// =========================================================
+// MANUTENÇÃO
+// =========================================================
+model Maintenance {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  equipmentId     String
+  equipment       Equipment @relation(fields: [equipmentId], references: [id])
+  itemId          String?   // referência ao item de manutenção
+  itemName        String
+  performedById   String?
+  performedBy     User?     @relation(fields: [performedById], references: [id])
+  cost            Float     @default(0)
+  readingAtMaintenance Float
+  shopOrResponsible String?
+  notes           String?
+  photo           String?
+  maintenanceDate DateTime @default(now())
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([equipmentId])
+}
+
+// =========================================================
+// DESPESAS
+// =========================================================
+model Expense {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  equipmentId     String?
+  equipment       Equipment? @relation(fields: [equipmentId], references: [id])
+  registeredById  String?
+  registeredBy    User?     @relation(fields: [registeredById], references: [id])
+  category        String    // peças | serviços | pneus | outros
+  description     String
+  amount          Float
+  expenseDate     DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([equipmentId])
+}
+
+// =========================================================
+// ALERTAS / NOTIFICAÇÕES
+// =========================================================
+model Alert {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  equipmentId     String?
+  equipment       Equipment? @relation(fields: [equipmentId], references: [id])
+  reservoirId     String?
+  reservoir       Reservoir? @relation(fields: [reservoirId], references: [id])
+  type            String    // maintenance | stock | system
+  level           String    // info | warning | danger
+  title           String
+  message         String
+  status          String    @default("active") // active | dismissed
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model Notification {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  userId          String?
+  title           String
+  message         String
+  read            Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@index([companyId])
+}
+
+// =========================================================
+// LEADS (formulário da landing)
+// =========================================================
+model Lead {
+  id              String    @id @default(cuid())
+  name            String
+  company         String?
+  whatsapp        String?
+  email           String?
+  equipmentCount  Int?
+  message         String?
+  status          String    @default("new") // new | contacted | negotiating | won | lost
+  source          String    @default("landing")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+}
+
+// =========================================================
+// CONFIGURAÇÕES DA PLATAFORMA (admin)
+// =========================================================
+model PlatformSetting {
+  id              String    @id @default(cuid())
+  key             String    @unique
+  value           String    // pode conter JSON
+  updatedAt       DateTime  @updatedAt
+}
+
+// =========================================================
+// CONTEÚDO EDITÁVEL DA LANDING
+// =========================================================
+model LandingContent {
+  id              String    @id @default(cuid())
+  section         String    @unique // hero | features | faq | testimonials | etc
+  content         String    // JSON
+  updatedAt       DateTime  @updatedAt
+}
+
+// =========================================================
+// DEPOIMENTOS
+// =========================================================
+model Testimonial {
+  id              String    @id @default(cuid())
+  name            String
+  company         String?
+  role            String?
+  content         String
+  rating          Int       @default(5)
+  avatar          String?
+  active          Boolean   @default(true)
+  order           Int       @default(0)
+  createdAt       DateTime  @default(now())
+}
+
+// =========================================================
+// TIPOS DE COMBUSTÍVEL / ITENS DE MANUTENÇÃO PADRÃO
+// =========================================================
+model FuelType {
+  id              String    @id @default(cuid())
+  name            String    @unique // Diesel S10, Diesel S500, Gasolina, Etanol
+  active          Boolean   @default(true)
+  order           Int       @default(0)
+}
+
+model MaintenanceItemTemplate {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  defaultInterval Float     @default(250)
+  controlType     String    @default("hours")
+  active          Boolean   @default(true)
+  order           Int       @default(0)
+}
+
+// =========================================================
+// LOGS / AUDITORIA
+// =========================================================
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id])
+  impersonatedById String?
+  impersonatedBy  User?     @relation("ImpersonatedBy", fields: [impersonatedById], references: [id])
+  companyId       String?
+  company         Company?  @relation(fields: [companyId], references: [id])
+  action          String    // login | create | update | delete | impersonate
+  entity          String?
+  entityId        String?
+  ip              String?
+  userAgent       String?
+  details         String?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([action])
+}
