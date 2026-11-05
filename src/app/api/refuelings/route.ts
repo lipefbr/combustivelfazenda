@@ -16,8 +16,8 @@ const schema = z.object({
   externalInvoicePhoto: z.string().optional().nullable(),
   liters: z.number().positive(),
   fuelType: z.string(),
-  pricePerLiter: z.number().positive(),
-  totalAmount: z.number().optional(),
+  pricePerLiter: z.number().optional().nullable(),
+  totalAmount: z.number().optional().nullable(),
   reading: z.number(),
   previousReading: z.number().optional().nullable(),
   service: z.string().optional().nullable(),
@@ -99,8 +99,19 @@ export async function POST(req: NextRequest) {
     }
 
     let reservoir = null;
-    let actualPricePerLiter = data.pricePerLiter;
-    let actualTotalAmount = data.totalAmount || data.liters * data.pricePerLiter;
+
+    // Determina o preço por litro real (com fallbacks)
+    // - Origem reservatório: usa pricePerLiter (ou externalPricePerLiter como fallback)
+    // - Origem externa: usa externalPricePerLiter (ou pricePerLiter como fallback)
+    let actualPricePerLiter: number =
+      data.pricePerLiter ||
+      data.externalPricePerLiter ||
+      0;
+
+    let actualTotalAmount: number =
+      data.totalAmount ||
+      data.externalTotalAmount ||
+      data.liters * actualPricePerLiter;
 
     if (data.source === "reservoir" && data.reservoirId) {
       reservoir = await db.reservoir.findUnique({
@@ -117,11 +128,19 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      actualPricePerLiter = data.pricePerLiter;
-      actualTotalAmount = data.totalAmount || data.liters * data.pricePerLiter;
+      // Para reservatório, se não informou preço, usa preço médio do estoque (R$ 0 se vazio)
+      if (!actualPricePerLiter) {
+        actualPricePerLiter = data.pricePerLiter || 0;
+        actualTotalAmount = data.totalAmount || data.liters * actualPricePerLiter;
+      }
     } else if (data.source === "external") {
-      actualPricePerLiter = data.externalPricePerLiter || data.pricePerLiter;
-      actualTotalAmount = data.externalTotalAmount || data.totalAmount || data.liters * actualPricePerLiter;
+      // Para posto externo: prioriza externalPricePerLiter, fallback em pricePerLiter
+      actualPricePerLiter =
+        data.externalPricePerLiter || data.pricePerLiter || 0;
+      actualTotalAmount =
+        data.externalTotalAmount ||
+        data.totalAmount ||
+        data.liters * actualPricePerLiter;
     }
 
     const refuelDate = data.refuelDate ? new Date(data.refuelDate) : new Date();
