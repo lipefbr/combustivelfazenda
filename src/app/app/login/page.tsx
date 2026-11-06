@@ -145,11 +145,6 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <p className="mt-4 text-center text-xs">
-            <Link href="/admin/login" className="text-muted-foreground hover:text-emerald-600">
-              Sou administrador FuelGest
-            </Link>
-          </p>
         </div>
       </div>
     </div>
