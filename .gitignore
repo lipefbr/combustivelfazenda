@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# See https://help.github.com/articles/ignoring-files/ for about ignoring files.
 
 # dependencies
 node_modules
@@ -30,25 +30,56 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (never commit secrets)
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+*.env
 
 # vercel
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Logs
 local-*
 .claude
 .z-ai-config
 *.log
 dev.log
 dev.out.log
+server.log
 test
 prompt
 
-server.log
-# Skills directory
+# Build artifacts
+dist/
+.turbo/
+
+# Database local (SQLite dev)
+db/*.db
+db/*.db-journal
+
+# Uploads locais (uploads em produção vão para o storage configurado)
+public/uploads/
+
+# Skills directory (interna, não vai para o repo público)
 /skills/
+
+# Cache e temporários
+.cache/
+tmp/
