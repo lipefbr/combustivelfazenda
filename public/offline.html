@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#10B981" />
+  <title>FuelGest — Modo Offline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 400px;
+      text-align: center;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: white;
+      border-radius: 20px;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+    h1 { font-size: 24px; margin-bottom: 8px; font-weight: 700; }
+    p { font-size: 16px; opacity: 0.9; margin-bottom: 24px; line-height: 1.5; }
+    button {
+      background: white;
+      color: #059669;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+    button:active { transform: translateY(0); }
+    .hint {
+      margin-top: 32px;
+      font-size: 13px;
+      opacity: 0.75;
+      padding: 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">⛽</div>
+    <h1>FuelGest — Modo Offline</h1>
+    <p>Você está sem conexão com a internet. Alguns dados já carregados ainda estão disponíveis, mas para registrar abastecimentos e entradas é preciso voltar a ter conexão.</p>
+    <button onclick="window.location.reload()">Tentar novamente</button>
+    <div class="hint">
+      Dica: o FuelGest funciona em campo mesmo com internet instável. Volte a ter sinal para sincronizar os dados.
+    </div>
+  </div>
+  <script>
+    // Verifica se voltou a conexão e recarrega
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>

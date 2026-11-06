@@ -13,6 +13,82 @@ Plataforma SaaS multiempresa para gestão de combustível, abastecimento e manut
 - **jsPDF + xlsx** para exportação
 - **bcryptjs + JWT** para autenticação segura
 - **Lucide** icons, **Sonner** toasts
+- **PWA** (Progressive Web App) — instalável, funciona offline
+
+## PWA (Progressive Web App)
+
+O FuelGest é um **PWA completo** — pode ser instalado no celular como um app nativo (Android, iOS e Desktop Chrome/Edge) e funciona parcialmente offline.
+
+### Funcionalidades PWA
+
+- **Instalável**: aparece o prompt "Instalar FuelGest" no Android e Chrome/Edge desktop. No iOS, use "Adicionar à Tela de Início" no Safari.
+- **Offline**: app shell cacheado, página de aviso `/offline.html` quando sem conexão, APIs com cache-first fallback.
+- **Ícones**: 8 tamanhos (192, 256, 384, 512) com versões `any` e `maskable` para Android.
+- **Apple Touch Icon** (180x180) e 8 splash screens para iPhone/iPad.
+- **Atalhos**: ao instalar, o ícone tem atalhos rápidos para "Novo Abastecimento", "Manutenções" e "Relatórios".
+- **Theme Color**: verde-esmeralda (#10B981) na barra de status no Android.
+- **Service Worker** com estratégias:
+  - App shell: cache-first com stale-while-revalidate
+  - APIs: network-first com fallback de cache
+  - Imagens: cache-first
+  - Fallback: `/offline.html` quando sem rede
+- **Push Notifications** (placeholder — estrutura pronta para integração)
+- **Background Sync** (placeholder — para futura fila de abastecimentos offline)
+
+### Como instalar
+
+**Android (Chrome/Edge):**
+1. Abra o FuelGest no Chrome/Edge
+2. Toque no menu (3 pontos) → "Instalar aplicativo" ou aguarde o banner "Instalar FuelGest"
+3. Toque em "Instalar agora"
+
+**iOS (Safari):**
+1. Abra o FuelGest no Safari
+2. Toque em "Compartilhar" → "Adicionar à Tela de Início"
+3. Toque em "Adicionar"
+
+**Desktop (Chrome/Edge):**
+1. Abra o FuelGest no Chrome ou Edge
+2. Clique no ícone "Instalar" na barra de endereços (ou menu → "Instalar FuelGest")
+
+### Arquivos PWA
+
+```
+public/
+├── manifest.json              # Web App Manifest (nome, ícones, atalhos)
+├── sw.js                       # Service Worker (caching, offline)
+├── offline.html                # Página de fallback offline
+├── apple-touch-icon.png        # Apple Touch Icon (180x180)
+├── favicon.svg                 # Favicon SVG
+└── icons/
+    ├── icon-{192,256,384,512}.png          # Ícones padrão
+    ├── icon-{192,256,384,512}-maskable.png # Ícones maskable
+    └── apple-splash-*.png                  # Splash screens iOS (8 tamanhos)
+src/components/pwa/
+├── register-sw.tsx             # Registra o Service Worker
+├── install-prompt.tsx           # Banner "Instalar FuelGest" (Android/Desktop)
+├── apple-splash.tsx             # Injeta links de splash iOS no <head>
+└── apple-head.tsx               # Helper exportado
+```
+
+### Teste do PWA
+
+```bash
+# Build de produção (necessário para SW funcionar 100%)
+bun run build
+bun run start
+
+# Ou teste em dev (o SW ainda registra, mas com caveats)
+bun run dev
+```
+
+No Chrome DevTools:
+- **Application** → **Manifest**: veja o manifest e ícones
+- **Application** → **Service Workers**: veja o SW ativo
+- **Application** → **Cache Storage**: veja os caches (`fuelgest-static-v1`, `fuelgest-api-v1`, `fuelgest-images-v1`)
+- **Network** → "Offline": simule offline para ver a página de fallback
+
+
 
 ## Funcionalidades
 
